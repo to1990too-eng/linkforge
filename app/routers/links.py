@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, HttpUrl
 
 from app.config import settings
+from app.services.shortener import create_unique_link
 from app.models.link import Link
-from app.services.shortener import generate_code
 
 router = APIRouter(prefix="/api/v1/links", tags=["links"])
 
@@ -26,15 +26,14 @@ class LinkStatsResponse(BaseModel):
 
 @router.post("", response_model=LinkCreateResponse, status_code=status.HTTP_201_CREATED)
 async def create_link(payload: LinkCreateRequest) -> LinkCreateResponse:
-    # Пробуем сгенерировать уникальный код (коллизии крайне редки, но обрабатываем)
-    for _ in range(5):
-        code = generate_code()
-        if not await Link.exists(short_code=code):
-            break
-    else:
-        raise HTTPException(status_code=500, detail="Could not generate unique code")
+    try:
+        link = await create_unique_link(str(payload.original_url))
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not allocate short code, try again",
+        ) from exc
 
-    link = await Link.create(short_code=code, original_url=str(payload.original_url))
     return LinkCreateResponse(
         short_code=link.short_code,
         short_url=f"{settings.base_url}/{link.short_code}",

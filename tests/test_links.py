@@ -1,5 +1,8 @@
 import pytest
 
+from unittest.mock import AsyncMock, patch
+
+from tortoise.exceptions import IntegrityError
 
 @pytest.mark.asyncio
 async def test_create_link_success(client, mock_redis):
@@ -49,3 +52,22 @@ async def test_redirect_caches_and_publishes(client, mock_redis, mock_publish):
 
     # Убеждаемся, что в БД/Redis повторно не писали (set вызван только 1 раз за оба запроса)
     assert mock_redis.set.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_create_link_retries_on_collision(client, mock_redis):
+    real_create = __import__("app.models.link", fromlist=["Link"]).Link.create
+    calls = {"n": 0}
+
+    async def flaky_create(**kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise IntegrityError("duplicate key")
+        return await real_create(**kwargs)
+
+    with patch("app.services.shortener.Link.create", side_effect=flaky_create):
+        resp = await client.post(
+            "/api/v1/links", json={"original_url": "https://example.com/x"}
+        )
+    assert resp.status_code == 201
+    assert calls["n"] == 2
