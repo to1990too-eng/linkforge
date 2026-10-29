@@ -1,4 +1,5 @@
 import json
+import uuid
 from typing import Any
 
 import aio_pika
@@ -41,6 +42,7 @@ async def publish_click(short_code: str) -> None:
         Message(
             body=json.dumps(payload).encode(),
             content_type="application/json",
+            message_id=str(uuid.uuid4()),
         ),
         routing_key=QUEUE_NAME,
     )
