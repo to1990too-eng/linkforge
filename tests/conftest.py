@@ -1,11 +1,10 @@
 from unittest.mock import AsyncMock
-
 import pytest
 from httpx import ASGITransport, AsyncClient
 from tortoise import Tortoise
 
-import app.redis_client as redis_module
-import app.rabbit as rabbit_module
+# Импортируем модуль с редиректом, чтобы патчить переменные внутри него
+from app.routers import redirect as redirect_router
 from app.main import app as fastapi_app
 
 
@@ -23,16 +22,19 @@ async def setup_db():
 @pytest.fixture
 def mock_redis(monkeypatch):
     fake = AsyncMock()
-    fake.get = AsyncMock(return_value=None)  # всегда cache miss по умолчанию
+    fake.get = AsyncMock(return_value=None)  # по умолчанию кэш пустой
     fake.set = AsyncMock(return_value=True)
-    monkeypatch.setattr(redis_module, "redis_client", fake)
+
+    # Патчим функцию get_redis, чтобы она возвращала наш мок
+    monkeypatch.setattr(redirect_router, "get_redis", lambda: fake)
     return fake
 
 
 @pytest.fixture
 def mock_publish(monkeypatch):
     publisher = AsyncMock()
-    monkeypatch.setattr(rabbit_module, "publish_click", publisher)
+    # Патчим publish_click прямо в роутере редиректа
+    monkeypatch.setattr(redirect_router, "publish_click", publisher)
     return publisher
 
 
