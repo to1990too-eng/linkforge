@@ -1,7 +1,7 @@
 import ipaddress
 import socket
 
-from pydantic import HttpUrl, field_validator
+from pydantic import HttpUrl
 
 MAX_URL_LENGTH = 2048
 ALLOWED_SCHEMES = {"http", "https"}
