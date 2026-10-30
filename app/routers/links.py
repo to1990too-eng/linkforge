@@ -1,15 +1,20 @@
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, field_validator
 
 from app.config import settings
 from app.services.shortener import create_unique_link
-from app.models.link import Link
+from app.services.url_validator import validate_public_url
 
 router = APIRouter(prefix="/api/v1/links", tags=["links"])
 
 
 class LinkCreateRequest(BaseModel):
-    original_url: HttpUrl
+    original_url: str
+
+    @field_validator("original_url")
+    @classmethod
+    def _validate_url(cls, v: str) -> str:
+        return validate_public_url(v)
 
 
 class LinkCreateResponse(BaseModel):
@@ -27,7 +32,7 @@ class LinkStatsResponse(BaseModel):
 @router.post("", response_model=LinkCreateResponse, status_code=status.HTTP_201_CREATED)
 async def create_link(payload: LinkCreateRequest) -> LinkCreateResponse:
     try:
-        link = await create_unique_link(str(payload.original_url))
+        link = await create_unique_link(payload.original_url)
     except RuntimeError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -43,6 +48,7 @@ async def create_link(payload: LinkCreateRequest) -> LinkCreateResponse:
 
 @router.get("/{code}/stats", response_model=LinkStatsResponse)
 async def get_stats(code: str) -> LinkStatsResponse:
+    from app.models.link import Link
     link = await Link.get_or_none(short_code=code)
     if link is None:
         raise HTTPException(status_code=404, detail="Link not found")
