@@ -4,7 +4,7 @@ from tortoise.exceptions import IntegrityError
 
 
 # ==========================================
-# 1. БАЗОВЫЕ ТЕСТЫ (Happy Path)
+# 1. УСПЕШНЫЕ СЦЕНАРИИ (Happy Path)
 # ==========================================
 
 @pytest.mark.asyncio
@@ -16,6 +16,7 @@ async def test_create_link_success(client, mock_redis):
     data = resp.json()
     assert data["original_url"] == "https://example.com/some/long/path"
     assert len(data["short_code"]) == 7
+    assert data["short_url"].endswith(data["short_code"])
 
 
 @pytest.mark.asyncio
@@ -26,7 +27,7 @@ async def test_redirect_caches_and_publishes(client, mock_redis, mock_publish):
     )
     code = create.json()["short_code"]
 
-    # Проверяем редирект
+    # Проверяем редирект (первый раз - cache miss, идем в БД)
     resp = await client.get(f"/{code}", follow_redirects=False)
     assert resp.status_code == 307
     assert resp.headers["location"] == "https://example.com/target"
@@ -34,6 +35,13 @@ async def test_redirect_caches_and_publishes(client, mock_redis, mock_publish):
     # Проверяем, что кеш записался и событие улетело в RabbitMQ
     mock_redis.set.assert_awaited_once()
     mock_publish.assert_awaited_once_with(code)
+
+    # Эмулируем попадание в кеш (второй раз - cache hit)
+    mock_redis.get.return_value = "https://example.com/target"
+    resp2 = await client.get(f"/{code}", follow_redirects=False)
+    assert resp2.status_code == 307
+    # Убеждаемся, что в БД повторно не ходили (set не вызывался второй раз)
+    assert mock_redis.set.await_count == 1
 
 
 # ==========================================
