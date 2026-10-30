@@ -1,11 +1,14 @@
 from unittest.mock import AsyncMock
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from tortoise import Tortoise
 
-# Импортируем модуль с редиректом, чтобы патчить переменные внутри него
-from app.routers import redirect as redirect_router
 from app.main import app as fastapi_app
+
+# Импортируем модуль с редиректом и модуль воркера, чтобы патчить переменные внутри них
+from app.routers import redirect as redirect_router
+from app.workers import stats_consumer as worker_module
 
 
 @pytest.fixture(autouse=True)
@@ -24,9 +27,14 @@ def mock_redis(monkeypatch):
     fake = AsyncMock()
     fake.get = AsyncMock(return_value=None)  # по умолчанию кэш пустой
     fake.set = AsyncMock(return_value=True)
+    # Можно добавить другие методы, если воркер их использует (например, incr)
+    fake.incr = AsyncMock(return_value=1)
 
-    # Патчим функцию get_redis, чтобы она возвращала наш мок
+    # Патчим функцию get_redis в роутере редиректа
     monkeypatch.setattr(redirect_router, "get_redis", lambda: fake)
+    # Патчим функцию get_redis в модуле воркера
+    monkeypatch.setattr(worker_module, "get_redis", lambda: fake)
+
     return fake
 
 

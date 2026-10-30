@@ -19,7 +19,7 @@ async def init_redis() -> Redis:
 async def close_redis() -> None:
     global redis_client
     if redis_client is not None:
-        await redis_client.aclose()
+        await redis_client.aclose()  # type: ignore[attr-defined]
         redis_client = None
 
 
