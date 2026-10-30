@@ -1,3 +1,5 @@
+![CI](https://github.com/1990too-eng/linkforge/actions/workflows/ci.yml/badge.svg)
+
 # LinkForge 🔗
 
 Асинхронный микросервис для сокращения ссылок на FastAPI.
