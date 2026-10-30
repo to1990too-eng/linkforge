@@ -3,7 +3,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from tortoise.exceptions import IntegrityError
 
-
 # ==========================================
 # 1. УСПЕШНЫЕ СЦЕНАРИИ (Happy Path)
 # ==========================================
