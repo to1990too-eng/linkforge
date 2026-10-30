@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch
-from tortoise.exceptions import IntegrityError
 
+from tortoise.exceptions import IntegrityError
 
 # ==========================================
 # 1. УСПЕШНЫЕ СЦЕНАРИИ (Happy Path)
